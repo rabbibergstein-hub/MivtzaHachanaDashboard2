@@ -1,500 +1,120 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mivtza Yedios Klaliyos Leaderboard</title>
-    
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Load React & ReactDOM (UMD) -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    
-    <!-- Load Babel for in-browser JSX compiling -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mivtza Display</title>
 
-    <!-- Application Styles -->
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600;800;900&display=swap');
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: black;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
 
-        body {
-            margin: 0;
-            padding: 0;
-            overflow: hidden;
-            background-color: #4d3393;
-        }
+    /* This stacks the two windows on top of each other */
+    .screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      transition: opacity 1.5s ease-in-out; /* Makes the switch look professional */
+    }
 
-        .bg-custom-purple { background-color: #4d3393; }
-        .text-custom-yellow { color: #e3e418; }
-        .bg-custom-yellow { background-color: #e3e418; }
+    /* Hide the screen by making it transparent */
+    .hidden {
+      opacity: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
 
-        .grid-pattern {
-            background-size: 100px 100px;
-            background-image:
-                linear-gradient(to right, rgba(255, 255, 255, 0.05) 2px, transparent 2px),
-                linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 2px, transparent 2px);
-            position: absolute;
-            inset: 0;
-            z-index: 0;
-        }
+    /* Show the screen */
+    .visible {
+      opacity: 1;
+      z-index: 1;
+      pointer-events: auto;
+    }
 
-        /* Flyer-Matched 3D Title */
-        .title-3d {
-            font-family: 'Bebas Neue', sans-serif;
-            color: #ffffff;
-            text-shadow:
-                0px 1px 0px #e0e0e0, 0px 2px 0px #d4d4d4, 0px 3px 0px #c8c8c8,
-                0px 4px 0px #bcbcbc, 0px 5px 0px #b0b0b0, 0px 6px 0px #a4a4a4,
-                0px 7px 0px #989898, 0px 8px 0px #8c8c8c, 0px 9px 0px #808080,
-                0px 10px 0px #747474, 0px 11px 0px #686868, 0px 12px 0px #5c5c5c,
-                0px 13px 0px #505050, 0px 14px 0px #444444, 0px 15px 0px #383838,
-                0px 16px 0px #2c2c2c, 0px 17px 0px #202020, 0px 18px 0px #141414,
-                0px 30px 40px rgba(0,0,0,0.8);
-            letter-spacing: 5px;
-            line-height: 0.85;
-            position: relative;
-            z-index: 10;
-        }
-        
-        .title-ring {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 75vw;
-            max-width: 1400px;
-            height: 120px;
-            border: 8px solid #e3e418;
-            border-radius: 80px;
-            z-index: -1;
-            box-shadow: 0 0 40px rgba(227, 228, 24, 0.4);
-        }
+    /* Floating Clock Overlay */
+    #clock-overlay {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 100; /* Ensure it stays above both iframes */
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-size: 2rem;
+      font-weight: bold;
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      pointer-events: none; /* Let clicks pass through to iframes if needed */
+    }
+  </style>
 
-        .subtitle-font { font-family: 'Bebas Neue', sans-serif; letter-spacing: 3px; }
-        .body-font { font-family: 'Inter', sans-serif; }
+  <script>
+    let current = 0;
 
-        .glass-panel {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 2px solid rgba(255, 255, 255, 0.15);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        }
+    function rotate() {
+      const dashboard = document.getElementById("dashboard");
+      const slides = document.getElementById("slides");
 
-        @keyframes strobe-border {
-            0%, 100% { border-color: rgba(255, 215, 0, 1); box-shadow: 0 0 80px rgba(255, 215, 0, 0.8), inset 0 0 30px rgba(255, 215, 0, 0.3); transform: scale(1); }
-            50% { border-color: rgba(255, 255, 255, 0.5); box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); transform: scale(0.99); }
-        }
-        .podium-1-flash {
-            animation: strobe-border 2s ease-in-out infinite;
-            border-width: 4px;
-        }
+      // Logic: If current is 0, show SLIDES. If current is 1, show DASHBOARD.
+      if (current === 0) {
+        dashboard.className = "screen hidden";
+        slides.className = "screen visible";
+        current = 1;
+      } else {
+        dashboard.className = "screen visible";
+        slides.className = "screen hidden";
+        current = 0;
+      }
+    }
 
-        @keyframes text-glow-flash {
-            0%, 100% { color: #fff; text-shadow: 0 0 30px #e3e418, 0 0 60px #e3e418; }
-            50% { color: #e3e418; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
-        }
-        .text-flash { animation: text-glow-flash 1.5s infinite; }
+    function updateClock() {
+      const clockElement = document.getElementById("clock-overlay");
+      const now = new Date();
+      
+      // Formatting time to HH:MM:SS
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const seconds = String(now.getSeconds()).padStart(2, '0');
+      
+      clockElement.textContent = `${hours}:${minutes}:${seconds}`;
+    }
 
-        @keyframes scroll-vertical {
-            0% { transform: translateY(0); }
-            100% { transform: translateY(-50%); }
-        }
-        .animate-scroll {
-            animation: scroll-vertical linear infinite;
-        }
-        
-        @keyframes sweep-shine {
-            0% { transform: translateX(-150%) skewX(-20deg); }
-            20%, 100% { transform: translateX(300%) skewX(-20deg); }
-        }
-        .animate-sweep {
-            animation: sweep-shine 4s infinite cubic-bezier(0.4, 0, 0.2, 1);
-        }
+    window.onload = function() {
+      // Rotate iframes every 20 seconds
+      setInterval(rotate, 20000); 
 
-        @keyframes float-up {
-            0% { transform: translateY(110vh) rotate(0deg) scale(1); opacity: 0; }
-            20% { opacity: 0.8; }
-            80% { opacity: 0.8; }
-            100% { transform: translateY(-10vh) rotate(360deg) scale(0.5); opacity: 0; }
-        }
-        .spark {
-            position: absolute;
-            background: #e3e418;
-            box-shadow: 0 0 10px #e3e418, 0 0 20px #e3e418;
-            border-radius: 2px;
-            pointer-events: none;
-            animation: float-up linear infinite;
-            z-index: 1;
-        }
-
-        @keyframes spin-slow {
-            from { transform: translate(-50%, -50%) rotate(0deg); }
-            to { transform: translate(-50%, -50%) rotate(360deg); }
-        }
-        .aura-spin {
-            animation: spin-slow 15s linear infinite;
-        }
-
-        @keyframes fast-sweep {
-            0%, 100% { transform: rotate(var(--start-rot)) scaleY(1.2); }
-            50% { transform: rotate(var(--end-rot)) scaleY(1.2); }
-        }
-        .fast-spotlight {
-            position: absolute;
-            top: -15vh;
-            width: 30vw;
-            height: 140vh;
-            clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
-            transform-origin: 50% 0%;
-            pointer-events: none;
-            z-index: 5;
-            mix-blend-mode: overlay;
-            filter: blur(20px);
-            animation: fast-sweep var(--dur) ease-in-out infinite;
-        }
-
-        @keyframes ambient-strobe {
-            0%, 93%, 97%, 100% { opacity: 0; }
-            94%, 98% { opacity: 0.15; }
-        }
-        .strobe-overlay {
-            position: absolute;
-            inset: 0;
-            background-color: white;
-            pointer-events: none;
-            z-index: 998;
-            animation: ambient-strobe 8s infinite;
-        }
-
-        .podium-2 { box-shadow: 0 0 40px rgba(192, 192, 192, 0.3); border-color: rgba(192, 192, 192, 0.6); border-width: 3px; }
-        .podium-3 { box-shadow: 0 0 40px rgba(205, 127, 50, 0.3); border-color: rgba(205, 127, 50, 0.6); border-width: 3px; }
-        
-        .mask-image-fade {
-            mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
-            -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
-        }
-    </style>
+      // Update the clock every second
+      updateClock();
+      setInterval(updateClock, 1000);
+    };
+  </script>
 </head>
+
 <body>
-    <div id="root"></div>
+  <!-- Floating Clock -->
+  <div id="clock-overlay">00:00:00</div>
 
-    <script type="text/babel">
-        const { useState, useEffect } = React;
-        const { createRoot } = ReactDOM;
+  <iframe 
+    id="dashboard" 
+    class="screen visible" 
+    src="https://rabbibergstein-hub.github.io/Mivtza-Yedios-Klaliyos-Dashboard/">
+  </iframe>
 
-        // Custom Icons
-        const Trophy = ({ size=24, className="" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>);
-        const RefreshCcw = ({ size=24, className="" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21v-5h5"/></svg>);
-        const Clock = ({ size=24, className="" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>);
-        const ShieldAlert = ({ size=24, className="" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>);
-        const Award = ({ size=24, className="" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>);
-        const Calendar = ({ size=24, className="" }) => (<svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>);
-
-        const parseCSV = (csvText) => {
-            const rows = [];
-            let currentRow = [];
-            let currentCell = '';
-            let inQuotes = false;
-            for (let i = 0; i < csvText.length; i++) {
-                const char = csvText[i];
-                if (char === '"') {
-                    if (inQuotes && csvText[i + 1] === '"') {
-                        currentCell += '"'; i++; 
-                    } else inQuotes = !inQuotes;
-                } else if (char === ',' && !inQuotes) {
-                    currentRow.push(currentCell.trim()); currentCell = '';
-                } else if ((char === '\n' || char === '\r') && !inQuotes) {
-                    if (char === '\r' && csvText[i + 1] === '\n') i++; 
-                    currentRow.push(currentCell.trim()); rows.push(currentRow);
-                    currentRow = []; currentCell = '';
-                } else currentCell += char;
-            }
-            if (currentCell || currentRow.length > 0) {
-                currentRow.push(currentCell.trim()); rows.push(currentRow);
-            }
-            if (rows.length <= 3) return { data: [], highlights: [] };
-            let validTopicCols = [];
-            const headersRow = rows[2];
-            headersRow.forEach((cell, idx) => {
-                const val = cell.trim();
-                if (idx > 3 && val && val.length > 1) {
-                    const lowerVal = val.toLowerCase();
-                    if (!lowerVal.includes('points') && !lowerVal.includes('level')) {
-                        validTopicCols.push({ idx, topic: val, countSet: new Set() });
-                    }
-                }
-            });
-            const bochurDataMap = new Map();
-            for (let i = 3; i < rows.length; i++) {
-                const row = rows[i];
-                if (!row || row.length === 0) continue;
-                const name = row[0] ? row[0].trim() : '';
-                if (!name || name.toLowerCase() === 'name') continue;
-                const scoreStr = row[3] || '0';
-                let score = parseInt(scoreStr.replace(/[^0-9.-]+/g, ''));
-                if (isNaN(score)) score = 0;
-                bochurDataMap.set(name, Math.max(bochurDataMap.get(name) || 0, score));
-                validTopicCols.forEach(topicCol => {
-                    const cellVal = row[topicCol.idx] ? row[topicCol.idx].trim().toUpperCase() : '';
-                    if (cellVal === 'TRUE') topicCol.countSet.add(name);
-                });
-            }
-            const data = [];
-            bochurDataMap.forEach((score, name) => { if (score > 0) data.push({ name, score }); });
-            const sortedData = data.sort((a, b) => b.score - a.score);
-            const highlights = validTopicCols
-                .map(t => ({ topic: t.topic, count: t.countSet.size }))
-                .filter(t => t.count > 0)
-                .sort((a, b) => b.count - a.count);
-            return { data: sortedData, highlights };
-        };
-
-        function App() {
-            const [leaderboard, setLeaderboard] = useState([]);
-            const [highlights, setHighlights] = useState([]);
-            const [loading, setLoading] = useState(true);
-            const [lastUpdated, setLastUpdated] = useState(null);
-            const [currentTime, setCurrentTime] = useState(new Date());
-            const [error, setError] = useState(null);
-            const [isRefreshing, setIsRefreshing] = useState(false);
-
-            const DATA_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRI2FaygrjaLuirwQRg87NWgxnIsD2FtZZeXOh_akzXH7FQEtQp0gESM03CYtv6FQp9ipLNJCupaN7c/pub?gid=1383656047&single=true&output=csv";
-            const LOGO_URL = "https://drive.google.com/uc?export=view&id=1Y2KucDFJmd3_GSOsVxhm98XSfSJ5IRSE";
-
-            // Live Clock Update
-            useEffect(() => {
-                const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-                return () => clearInterval(timer);
-            }, []);
-
-            const fetchLeaderboardData = async () => {
-                setIsRefreshing(true);
-                setError(null);
-                try {
-                    const response = await fetch(DATA_URL);
-                    if (!response.ok) throw new Error("Network response was not ok");
-                    const csvText = await response.text();
-                    const parsed = parseCSV(csvText);
-                    let currentRank = 0;
-                    let previousScore = null;
-                    const rankedData = parsed.data.map((item) => {
-                        if (item.score !== previousScore) currentRank++;
-                        previousScore = item.score;
-                        return { ...item, rank: currentRank };
-                    });
-                    setLeaderboard(rankedData);
-                    setHighlights(parsed.highlights);
-                    setLastUpdated(new Date());
-                } catch (err) {
-                    setError("Sync Error. Showing cached/fallback data.");
-                } finally {
-                    setLoading(false);
-                    setTimeout(() => setIsRefreshing(false), 500); 
-                }
-            };
-
-            useEffect(() => {
-                fetchLeaderboardData();
-                const interval = setInterval(fetchLeaderboardData, 5 * 60 * 1000);
-                return () => clearInterval(interval);
-            }, []);
-
-            const maxScore = 2000;
-            const topThree = leaderboard.slice(0, 3);
-            const scrollDuration = Math.max(20, leaderboard.length * 2.5);
-
-            const sparks = Array.from({ length: 20 }).map((_, i) => ({
-                id: i,
-                left: `${Math.random() * 100}%`,
-                animationDuration: `${Math.random() * 5 + 5}s`,
-                animationDelay: `${Math.random() * 5}s`,
-                size: `${Math.random() * 6 + 2}px`
-            }));
-
-            const fastSpotlights = [
-                { id: 1, left: '-10%', color: 'rgba(255,255,255,0.6)', dur: '2.5s', start: '-45deg', end: '15deg' },
-                { id: 2, left: '5%', color: 'rgba(227, 228, 24, 0.5)', dur: '3.1s', start: '-25deg', end: '35deg' },
-                { id: 3, left: '25%', color: 'rgba(255,255,255,0.5)', dur: '2.8s', start: '-15deg', end: '45deg' },
-                { id: 4, left: '40%', color: 'rgba(227, 228, 24, 0.6)', dur: '3.4s', start: '10deg', end: '-35deg' },
-                { id: 5, left: '55%', color: 'rgba(255,255,255,0.5)', dur: '2.6s', start: '30deg', end: '-20deg' },
-                { id: 6, left: '70%', color: 'rgba(227, 228, 24, 0.5)', dur: '3.2s', start: '45deg', end: '-15deg' },
-                { id: 7, left: '85%', color: 'rgba(255,255,255,0.6)', dur: '2.9s', start: '25deg', end: '-40deg' },
-                { id: 8, left: '100%', color: 'rgba(227, 228, 24, 0.5)', dur: '3.5s', start: '15deg', end: '-45deg' },
-            ];
-
-            return (
-                <div className="h-screen w-screen bg-custom-purple font-sans text-white relative flex flex-col">
-                    <div className="grid-pattern"></div>
-                    <div className="strobe-overlay"></div>
-                    {fastSpotlights.map(light => (
-                        <div key={`light-${light.id}`} className="fast-spotlight" style={{ left: light.left, background: `radial-gradient(ellipse at 50% 0%, ${light.color} 0%, transparent 80%)`, '--start-rot': light.start, '--end-rot': light.end, '--dur': light.dur }} />
-                    ))}
-                    <div className="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-[#e3e418]/10 blur-[150px] rounded-full mix-blend-screen pointer-events-none"></div>
-                    <div className="absolute bottom-[-10%] right-[-10%] w-[50vw] h-[50vw] bg-[#6b4cdd]/30 blur-[150px] rounded-full mix-blend-screen pointer-events-none"></div>
-
-                    {sparks.map(spark => (
-                        <div key={`spark-${spark.id}`} className="spark" style={{ left: spark.left, width: spark.size, height: spark.size, animationDuration: spark.animationDuration, animationDelay: spark.animationDelay }} />
-                    ))}
-                    
-                    <img src={LOGO_URL} alt="Logo" className="absolute top-4 left-6 h-20 xl:h-24 w-auto z-50 drop-shadow-2xl" onError={(e) => e.target.style.display = 'none'} />
-
-                    {loading && !leaderboard.length ? (
-                        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-custom-purple">
-                            <div className="w-32 h-32 border-[12px] border-[#e3e418] border-t-transparent rounded-full animate-spin"></div>
-                            <p className="mt-10 body-font text-5xl text-white/90 animate-pulse font-black uppercase">Loading Stats...</p>
-                        </div>
-                    ) : null}
-
-                    {/* --- HEADER --- */}
-                    <div className="relative z-10 shrink-0 h-[14vh] flex flex-col items-center justify-center pt-0">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-32 bg-custom-yellow rounded-full blur-[120px] opacity-20"></div>
-                        <div className="relative mt-2">
-                            <div className="title-ring"></div>
-                            <h1 className="title-3d text-[4rem] xl:text-[5rem] whitespace-nowrap leading-none text-center px-12">
-                                MIVTZA YEDIOS KLALIYOS LEADERBOARD
-                            </h1>
-                        </div>
-                        
-                        {/* Status/Clock Area */}
-                        <div className="absolute top-6 right-8 flex flex-col items-end gap-2 body-font z-50">
-                            {/* Real Time Clock */}
-                            <div className="flex items-center gap-3 text-[#e3e418] bg-black/70 px-6 py-2 rounded-full font-black text-2xl border-2 border-[#e3e418]/60 shadow-lg">
-                                <Clock size={28} />
-                                {currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                            </div>
-
-                            <div className="flex gap-2">
-                                {isRefreshing ? (
-                                    <div className="flex items-center gap-2 text-custom-yellow bg-black/60 px-4 py-1.5 rounded-full font-black text-lg border border-[#e3e418]/30 animate-pulse">
-                                        <RefreshCcw size={18} className="animate-spin" /> SYNCING...
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-2 text-white/60 bg-black/40 px-4 py-1.5 rounded-full font-bold text-sm border border-white/10">
-                                        LAST SYNC: {lastUpdated?.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                    </div>
-                                )}
-                            </div>
-                            {error && (
-                                <div className="flex items-center gap-2 text-red-400 bg-red-900/60 px-4 py-1 rounded-full font-bold text-sm border border-red-500/30">
-                                    <ShieldAlert size={16} /> CONNECTION ERROR
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* --- PODIUM --- */}
-                    <div className="relative z-10 shrink-0 h-[38vh] flex justify-center items-end gap-8 px-10 pb-8 -mt-6">
-                        {topThree[1] && (
-                            <div className="flex-1 max-w-[450px] w-full">
-                                <div className="glass-panel podium-2 rounded-3xl p-8 flex flex-col items-center text-center relative overflow-hidden h-full justify-between">
-                                    <div className="absolute top-0 left-0 w-full h-4 bg-[#c0c0c0]"></div>
-                                    <div className="w-20 h-20 rounded-full bg-[#c0c0c0]/20 flex items-center justify-center mb-2 border-4 border-[#c0c0c0]/50">
-                                        <h3 className="text-[#c0c0c0] text-4xl font-black body-font">#2</h3>
-                                    </div>
-                                    <h2 className="subtitle-font text-5xl text-white truncate w-full px-2">{topThree[1].name}</h2>
-                                    <div className="flex items-baseline gap-2 mt-2">
-                                        <span className="text-6xl font-black text-[#c0c0c0]">{topThree[1].score.toLocaleString()}</span>
-                                        <span className="text-2xl text-white/50 font-bold">PTS</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {topThree[0] && (
-                            <div className="flex-1 max-w-[550px] w-full z-20">
-                                <div className="glass-panel podium-1-flash rounded-[2.5rem] p-10 flex flex-col items-center text-center relative overflow-hidden bg-black/30 backdrop-blur-3xl border-[#e3e418]">
-                                    <div className="absolute top-0 left-0 w-full h-6 bg-[#ffd700] z-20"></div>
-                                    <div className="absolute top-1/2 left-1/2 w-[200%] h-[200%] bg-[conic-gradient(from_0deg,transparent_0deg,rgba(255,215,0,0.2)_30deg,transparent_60deg,rgba(255,215,0,0.2)_90deg,transparent_120deg,rgba(255,215,0,0.2)_150deg,transparent_180deg,rgba(255,215,0,0.2)_210deg,transparent_240deg,rgba(255,215,0,0.2)_270deg,transparent_300deg,rgba(255,215,0,0.2)_330deg,transparent_360deg)] aura-spin pointer-events-none z-0"></div>
-                                    <Trophy size={90} className="text-[#ffd700] mb-2 drop-shadow-[0_0_40px_rgba(255,215,0,1)] z-10 relative" />
-                                    <h2 className="subtitle-font text-6xl text-white truncate w-full px-2 z-10 relative">{topThree[0].name}</h2>
-                                    <div className="bg-gradient-to-r from-[#ffd700] via-[#fff5a0] to-[#ffd700] text-custom-purple px-6 py-2 rounded-full text-2xl font-black tracking-[0.2em] my-4 body-font shadow-[0_0_20px_rgba(255,215,0,0.6)] z-10 uppercase relative">
-                                        Top Achiever
-                                    </div>
-                                    <div className="flex items-baseline gap-2 z-10 relative">
-                                        <span className="text-[6.5rem] font-black text-flash drop-shadow-2xl leading-none">{topThree[0].score.toLocaleString()}</span>
-                                        <span className="text-3xl text-white/90 uppercase font-black">PTS</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {topThree[2] && (
-                            <div className="flex-1 max-w-[450px] w-full">
-                                <div className="glass-panel podium-3 rounded-3xl p-8 flex flex-col items-center text-center relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-full h-4 bg-[#cd7f32]"></div>
-                                    <div className="w-16 h-16 rounded-full bg-[#cd7f32]/20 flex items-center justify-center mb-2 border-4 border-[#cd7f32]/50">
-                                        <h3 className="text-[#cd7f32] text-3xl font-black body-font">#3</h3>
-                                    </div>
-                                    <h2 className="subtitle-font text-[2.75rem] text-white truncate w-full px-2 leading-tight">{topThree[2].name}</h2>
-                                    <div className="flex items-baseline gap-2 mt-2">
-                                        <span className="text-5xl font-black text-[#cd7f32]">{topThree[2].score.toLocaleString()}</span>
-                                        <span className="text-xl text-white/50 font-bold">PTS</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* --- ROSTER & HIGHLIGHTS --- */}
-                    <div className="relative z-10 flex-1 flex flex-row items-stretch justify-center mt-2 px-10 h-[48vh] gap-8 pb-4">
-                        <div className="w-[65%] h-full bg-black/40 rounded-[2rem] border-2 border-white/10 shadow-2xl flex flex-col overflow-hidden relative">
-                            <div className="flex items-center gap-4 px-8 py-4 border-b-2 border-white/10 bg-white/5 shrink-0 z-20 shadow-md">
-                                <Award size={36} className="text-custom-yellow" />
-                                <h3 className="subtitle-font text-4xl tracking-widest text-white m-0 leading-none pt-2">ACHIEVEMENT ROSTER</h3>
-                            </div>
-
-                            <div className="flex-1 overflow-hidden relative mask-image-fade">
-                                <div className="absolute top-0 w-full animate-scroll flex flex-col" style={{ animationDuration: `${scrollDuration}s` }}>
-                                    {[...leaderboard, ...leaderboard].map((entry, idx) => {
-                                        const percentage = Math.min(100, Math.max(2, (entry.score / maxScore) * 100));
-                                        return (
-                                            <div key={`roster-${entry.name}-${idx}`} className="flex flex-row items-center gap-6 px-8 py-6 border-b border-white/5">
-                                                <div className="flex items-center gap-6 w-[40%] shrink-0">
-                                                    <div className="w-20 text-center text-white/40 font-black text-5xl body-font">#{entry.rank}</div>
-                                                    <div className="font-bold text-[2.5rem] text-white truncate flex-1 body-font">{entry.name}</div>
-                                                </div>
-                                                <div className="w-[60%] flex items-center gap-6">
-                                                    <div className="flex-1 h-6 bg-black/60 rounded-full overflow-hidden border border-white/10 p-1">
-                                                        <div className="h-full bg-gradient-to-r from-custom-purple via-custom-yellow to-white rounded-full relative overflow-hidden" style={{ width: `${percentage}%` }}>
-                                                            <div className="absolute inset-0 bg-white/20 animate-sweep"></div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="w-32 text-right text-white font-black text-4xl body-font italic">{entry.score.toLocaleString()}</div>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="w-[35%] h-full bg-black/40 rounded-[2rem] border-2 border-[#e3e418]/20 shadow-2xl flex flex-col overflow-hidden">
-                            <div className="flex items-center gap-4 px-8 py-4 border-b-2 border-[#e3e418]/20 bg-[#e3e418]/5 shrink-0">
-                                <Calendar size={36} className="text-custom-yellow" />
-                                <h3 className="subtitle-font text-4xl tracking-widest text-white m-0 leading-none pt-2">WEEKLY STATS</h3>
-                            </div>
-                            <div className="flex-1 p-6 flex flex-col gap-4 overflow-y-auto">
-                                {highlights.map((h, i) => (
-                                    <div key={i} className="glass-panel rounded-2xl p-5 border-l-8 border-[#e3e418] hover:bg-white/10 transition-colors">
-                                        <p className="text-white/60 subtitle-font text-xl uppercase tracking-widest mb-1">{h.topic}</p>
-                                        <div className="flex justify-between items-end">
-                                            <span className="body-font font-black text-5xl text-white">{h.count}</span>
-                                            <span className="body-font font-bold text-lg text-custom-yellow uppercase">Participants</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        const root = createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+  <iframe 
+    id="slides" 
+    class="screen hidden" 
+    src="https://docs.google.com/presentation/d/e/2PACX-1vSO-qw-BQKFidxCH7uLWlgC0vHbd-0S_PTECGZJwqzy0xl9Q_FqjuY-FqYs5-IB6ZjvEHhjD2Q_ekjt/embed?start=true&loop=true&delayms=1000">
+  </iframe>
 </body>
 </html>
